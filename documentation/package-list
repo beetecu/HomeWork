@@ -1,0 +1,6 @@
+org.stringmatching.determinist.aho_corasick
+org.stringmatching.heuristic.wu_manber
+org.stringmatching.hybrid.ahocorasick_wumanber
+org.stringmatching.matcher
+org.stringmatching.pattern
+org.stringmatching.utils
