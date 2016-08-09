@@ -43,6 +43,6 @@ Usage:
         Number of threads for Aho-Corasick method (default: 1)
 
   -m <wm_threads>
-        Number of threads for Aho-Corasick method (default: 3)
+        Number of threads for Wu Manber method (default: 3)
 
 
