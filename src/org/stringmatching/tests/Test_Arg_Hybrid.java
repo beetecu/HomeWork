@@ -85,7 +85,7 @@ public class Test_Arg_Hybrid {
 										   "Number of threads for Aho-Corasick method" ),
 										
 						new FlaggedOption( "wm_threads", JSAP.INTEGER_PARSER, "3", JSAP.REQUIRED, 'm', JSAP.NO_LONGFLAG, 
-										   "Number of threads for Aho-Corasick method" )				
+										   "Number of threads for Wu Manber method" )				
 				}
 				);
 
