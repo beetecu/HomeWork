@@ -33,41 +33,24 @@ import org.stringmatching.matcher.PatternResults;
 
 public class AC_WM_Matcher extends Matcher{
 
-
-	private static final String EXPRESSION = " ";
-
+	/**
+	 * Number of thread in the pool
+	 */
+	private static final int FIXEDTHREADPOO = 5;
 
 	private static AC_WM_Pattern _ac_wm_Pattern;
-
-	private static final int TSEQUENCER_ID = 0;
-	private static final int TACMATCHER_ID = 1;
-	private static final int TWMMATCHER_ID = 2;
-
-
-	private  Queue<Token> ac_queue = new LinkedList<Token>();
-	private  Queue<Token> wm_queue = new LinkedList<Token>();
 
 	private static int _numberOfACThreads;
 	private static int _numberOfWMThreads;
 
 
-	private static byte[] _stream;
-
-	private static boolean isSequencerWorking = false;
-
 	static boolean _debug = false;
-
 
 	private    AC_Matcher _acMatcher;
 	private    WM_Matcher _wmMatcher;
 
 
-	protected long _block_start;
 
-	static boolean isMachProcessEnded = false;
-
-
-	private static long _start_position;
 
 
 	/**
@@ -109,106 +92,102 @@ public class AC_WM_Matcher extends Matcher{
 		if ((_wmMatcher == null) && (_acMatcher== null))
 			throw new IllegalArgumentException("Error in the Patter model"); 
 
-		isMachProcessEnded = false;
 	}
 
 
 	@Override
 	public void doMach(byte[] stream, long start_position) throws Exception {
+
+
+		//_stream = stream;
+
+		int block_size = 0;
+		byte[] block;
+		long block_start = 0;
+		long block_end = block_size;
 		
+		LaunchMatcherAC tacMatcher;
+		LaunchMatcherWM twmMatcher;
 
-		_stream = stream;
-		_start_position = start_position;
+		ExecutorService executor = Executors.newFixedThreadPool(FIXEDTHREADPOO);
 
-		
-
-		ExecutorService executor = Executors.newFixedThreadPool(5);
-     
 		if (_acMatcher != null){
-			
-			int block_size = _stream.length / this._numberOfACThreads;
-			byte[] block;
-			long block_start = 0;
-			long block_end = block_size;
-			
-			for (int i=0; i< this._numberOfACThreads; i++){
-			
-				block = new byte[(int) (block_end - block_start)];	
-						
-				System.arraycopy(_stream, (int)block_start, block, 0, (int) (block_end - block_start));
-				
-				//_block_start = 0;
-				
-				LaunchMatcherAC tacMatcher = new LaunchMatcherAC(block, block_start);
-				
-				
-				block_start = block_end;
-				block_end = block_end + block_size;
 
+			if (this._numberOfACThreads > 1){
+
+				block_size = stream.length / this._numberOfACThreads;
+
+				block_end = block_size;
+
+
+
+				for (int i=0; i< this._numberOfACThreads; i++){
+
+					block = new byte[(int) (block_end - block_start)];	
+
+					System.arraycopy(stream, (int)block_start, block, 0, (int) (block_end - block_start));
+
+					tacMatcher = new LaunchMatcherAC(block, block_start);
+
+					block_start = block_end;
+					block_end = block_end + block_size;
+
+					executor.execute(tacMatcher);
+
+				}
+			}else{
+
+				tacMatcher = new LaunchMatcherAC(stream, 0);
 				executor.execute(tacMatcher);
-				
 			}
 
-			
-	}
-     
+
+		}
+
 		if (_wmMatcher != null){
-			
-			int block_size = _stream.length / this._numberOfWMThreads;
-			byte[] block;
-			long block_start = 0;
-			long block_end = block_size;
-			
-			for (int i=0; i< this._numberOfWMThreads; i++){
-			
-				block = new byte[(int) (block_end - block_start)];	
-						
-				System.arraycopy(_stream, (int)block_start, block, 0, (int) (block_end - block_start));
-				
-				//_block_start = 0;
-				
-				LaunchMatcherWM twmMatcher = new LaunchMatcherWM(block, block_start);
-				
-				block_start = block_end;
-				block_end = block_end + block_size;
 
-				executor.execute(twmMatcher);
+			if (this._numberOfWMThreads > 1){
+
+				block_size = stream.length / this._numberOfWMThreads;
+				block_start = 0;
+				block_end = block_size;
+
+				for (int i=0; i< this._numberOfWMThreads; i++){
+
+					block = new byte[(int) (block_end - block_start)];	
+
+					System.arraycopy(stream, (int)block_start, block, 0, (int) (block_end - block_start));
+
+					twmMatcher = new LaunchMatcherWM(block, block_start);
+
+					block_start = block_end;
+					block_end = block_end + block_size;
+
+					executor.execute(twmMatcher);
+
+				}
+			}else{
 				
+				twmMatcher = new LaunchMatcherWM(stream, 0);
+				executor.execute(twmMatcher);
 			}
 
-			
-	}
-        executor.shutdown();
-        
-        
-        while (!executor.isTerminated()) {
-        	
-        	//System.out.println("working");
-        }
-        
-        System.out.println();
-        //_wmMatcher.getMacherResults().printResults();
-        //_acMatcher.getMacherResults().printResults();
-        
-  		System.out.println("End matching process");
-  		updateResults();
-        
-      //wait until the matching process is running
-        /*
-      		while(!isMachProcessEnded ){
 
-      			try {
-      				Thread.sleep(10);
-      			} catch (InterruptedException e) {
-      				// TODO Auto-generated catch block
-      				e.printStackTrace();
-      			}
-      		}*/
+		}
+		executor.shutdown();
 
-      		
-		
-		//.start();
 
+		while (!executor.isTerminated()) {
+
+			//System.out.println("working");
+		}
+
+		System.out.println();
+		//_wmMatcher.getMacherResults().printResults();
+		//_acMatcher.getMacherResults().printResults();
+
+		System.out.println("End matching process");
+		updateResults();
 
 
 
@@ -222,7 +201,7 @@ public class AC_WM_Matcher extends Matcher{
 	 */
 	public  void updateResults() throws Exception {
 
-		
+
 		try{
 
 			if (_macherResults == null){
@@ -236,7 +215,7 @@ public class AC_WM_Matcher extends Matcher{
 				}
 
 				if (_wmMatcher != null){
-					
+
 					// the results from the Aho Coracick Matcher
 					for (PatternResults p : _wmMatcher.getMacherResults()._results)
 						_macherResults._results.add(p);
@@ -267,17 +246,22 @@ public class AC_WM_Matcher extends Matcher{
 	}
 
 
+	/**
+	 * 
+	 * @author beetecu
+	 *
+	 */
 	private class LaunchMatcherWM implements Runnable{
 
 		private long _offset;
 		private byte[] _block;
-		
+
 		public LaunchMatcherWM(byte[] block, long offset){
 			_offset = offset;
 			_block = block;
 		}
-		
-		
+
+
 		@Override
 		public void run() {
 			// TODO Auto-generated method stub
@@ -288,36 +272,34 @@ public class AC_WM_Matcher extends Matcher{
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
-			
+
 		}
-		
+
 	}
-	
+
 	private class LaunchMatcherAC implements Runnable{
 
 		private long _offset;
 		private byte[] _block;
-		
+
 		public LaunchMatcherAC(byte[] block, long offset){
 			_offset = offset;
 			_block = block;
 		}
-		
-		
+
+
 		@Override
 		public void run() {
-			// TODO Auto-generated method stub
-			//System.out.println("_block_start " + _offset);
 			try {
 				_acMatcher.doMach(_block, _offset);
 			} catch (Exception e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
 			}
-			
+
 		}
-		
+
 	}
-	
+
 
 }
